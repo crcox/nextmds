@@ -78,7 +78,7 @@ def read_triplets(data_path):
         target = header.index('target')
         qt = header.index('queryType')
         labels = []
-        query_type_count = {}
+        query_type_count = {'random':0,'adaptive':0,'cv':0}
         query_names = ('random','adaptive','cv')
         for row in reader: # reads rest of rows
             query = [ row[i].strip() for i in (primary,alternate,target) ]
@@ -92,10 +92,7 @@ def read_triplets(data_path):
             elif query_type == 2:
                 CV_l.append(query)
 
-            try:
-                query_type_count[query_names[query_type]] += 1
-            except KeyError:
-                query_type_count[query_names[query_type]] = 1
+            query_type_count[query_names[query_type]] += 1
 
     item_count = len(labels)
     intconv = False
@@ -216,8 +213,8 @@ def fitModel(model, responses, opts=False):
     type_names = ('random','adaptive','cv')
     def printLoss(MDATA):
         epoch_str = "epoch = {:2d}".format(MDATA['epoch'])
-        emp_str = "emploss = {:.3f}".format(MDATA['emploss']/MDATA['ntrain'])
-        hinge_str = "hingeloss = {:.3f}".format(MDATA['hingeloss'])
+        emp_str = "emploss = {:.3f}".format(sum(MDATA['emploss'])/float(len(MDATA['emploss'])))
+        hinge_str = "hingeloss = {:.3f}".format(sum(MDATA['hingeloss']))
         norm_str = "norm(X)/sqrt(n) = {:.3f}".format(MDATA['norm'])
         print '  '.join([epoch_str,emp_str,hinge_str,norm_str])
 
@@ -235,13 +232,6 @@ def fitModel(model, responses, opts=False):
     train_name = type_names[opts['traincode']]
     test_name = type_names[opts['testcode']]
     lastQuery = int(floor(responses['nqueries'][train_name] * opts['proportion']))
-    ntest = 0
-    ntrain = 0
-    for k,v in responses['nqueries'].items():
-        if k == train_name:
-            ntrain += v
-        elif k == test_name:
-            ntest += v
 
     TRAIN = []
     if opts['traincode']==0:
@@ -259,21 +249,28 @@ def fitModel(model, responses, opts=False):
     elif opts['testcode']==2:
         TEST.extend(responses['CV'])
 
+    ntrain_full = len(TRAIN)
     TRAIN = TRAIN[:lastQuery]
+    ntrain = len(TRAIN)
+    ntest = len(TEST)
+    print '\n\n{ntrain_full} {ntrain} {ntest}\n\n'.format(ntrain_full=ntrain_full, ntrain=ntrain, ntest=ntest)
     lossLog = []
     for epoch in range(opts['nepochs']):
-        MDATA = {'emploss': 0, 'hingeloss': 0, 'epoch': epoch, 'ntrain': float(ntrain)}
-        MDATA_test = {'emploss': 0, 'hingeloss': 0, 'epoch': epoch}
+        MDATA = {'emploss': [], 'hingeloss': [], 'epoch': epoch}
+        MDATA_test = {'emploss': [], 'hingeloss': [], 'epoch': epoch}
         shuffle(TRAIN)
-        for i,query in enumerate(TRAIN):
+        for query in TRAIN:
             QDATA = updateModel(model, query, STEP_COUNTER)
-            MDATA['emploss'] += QDATA['emploss']
-            MDATA['hingeloss'] += QDATA['hingeloss']
 
-        for i,query in enumerate(TEST):
+        for query in TRAIN:
             QDATA = evaluateModel(model, query)
-            MDATA_test['emploss'] += QDATA['emploss']
-            MDATA_test['hingeloss'] += QDATA['hingeloss']
+            MDATA['emploss'].append(QDATA['emploss'])
+            MDATA['hingeloss'].append(QDATA['hingeloss'])
+
+        for query in TEST:
+            QDATA = evaluateModel(model, query)
+            MDATA_test['emploss'].append(QDATA['emploss'])
+            MDATA_test['hingeloss'].append(QDATA['hingeloss'])
 
         if opts['verbose'] == True:
             MDATA['emploss']
@@ -283,10 +280,10 @@ def fitModel(model, responses, opts=False):
         if opts['log'] == True:
             lossLog.append(
                     [
-                        MDATA['emploss']/float(ntrain),
-                        MDATA['hingeloss'],
-                        MDATA_test['emploss']/float(ntest),
-                        MDATA_test['hingeloss']
+                        sum(MDATA['emploss'])/float(len(MDATA['emploss'])),
+                        sum(MDATA['hingeloss']),
+                        sum(MDATA_test['emploss'])/float(len(MDATA_test['emploss'])),
+                        sum(MDATA_test['hingeloss'])
                     ]
                 )
 
