@@ -1,0 +1,20 @@
+{
+  "output": "str",
+  "error": "str",
+  "log": "str",
+  "+WantFlocking": [true,false],
+  "+WantGlidein": [true,false],
+  "request_cpus": "int",
+  "request_memory": "int",
+  "request_disk": "int",
+  "should_transfer_files": ["YES","NO"],
+  "when_to_transfer_output": ["ON_EXIT","ON_EXIT_OR_EVICT"],
+  "universe": ["vanilla"],
+  "executable": "str",
+  "VERSION":"str",
+  "ARGS":"str",
+  "notification": ["never"],
+  "transfer_input_files": ["yyyy"],
+  "+AccountingGroup": [true,false]
+}
+

@@ -1,0 +1,7 @@
+sessionId,dateCreate,targetId,target,primaryId,primary,alternateId,alternate,queryType
+123457890,2014-08-04,     101,   cat,      102,    dog,        103,    moose,       0
+123457890,2014-08-04,     102,   dog,      104,   duck,        105,   tomato,       1
+123457890,2014-08-04,     106, mouse,      101,    cat,        103,    moose,       2
+123457890,2014-08-04,     103, moose,      102,    dog,        101,      cat,       0
+123457890,2014-08-04,     104,  duck,      105, tomato,        103,    moose,       1
+123457890,2014-08-04,     105,tomato,      106,  mouse,        107,  caboose,       2
