@@ -1,7 +1,7 @@
 {
   "version": "EXP01",
   "condor": false,
-  "responses": "../NEXT/animal_responses.csv",
+  "responses": "NEXT/animal_responses_noID.csv",
   "nepochs": 10,
   "traincode":1,
   "testcode":2,
