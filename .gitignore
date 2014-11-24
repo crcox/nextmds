@@ -1,3 +1,6 @@
 **/*.pyc
 Untracked/**
 Untracked
+AnimalTest/**
+!AnimalTest/master.json
+!AnimalTest/NEXT/**
