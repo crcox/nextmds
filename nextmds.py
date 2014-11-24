@@ -255,7 +255,8 @@ def fitModel(model, responses, opts=False):
     ntest = len(TEST)
     print '\n\n{ntrain_full} {ntrain} {ntest}\n\n'.format(ntrain_full=ntrain_full, ntrain=ntrain, ntest=ntest)
     lossLog = []
-    for epoch in range(opts['nepochs']):
+    epoch = 0
+    while epoch < opts['maxepochs']:
         MDATA = {'emploss': [], 'hingeloss': [], 'epoch': epoch}
         MDATA_test = {'emploss': [], 'hingeloss': [], 'epoch': epoch}
         shuffle(TRAIN)
@@ -286,6 +287,13 @@ def fitModel(model, responses, opts=False):
                         sum(MDATA_test['hingeloss'])
                     ]
                 )
+
+        funcVal_prev = MDATA[opts['stopFunc']][-2]
+        funcVal= MDATA[opts['stopFunc']][-1]
+        tol = opts['tolerance']
+        if abs(funcVal-funcVal_prev) < tol:
+            break
+        epoch += 1
 
     if opts['debug']:
         return len(TRAIN)
