@@ -5,6 +5,9 @@ import csv
 import json
 import os
 import sys
+from datetime import datetime
+import tarfile
+import shutil
 
 #############################################################
 #   Load data and parameters from the "master" json file    #
@@ -45,6 +48,10 @@ responses = mds.read_triplets(responsepath)
 sharedir = os.path.join(rootdir,'shared')
 if not os.path.isdir(sharedir):
     os.makedirs(sharedir)
+
+archivedir = os.path.join(rootdir,'archive')
+if not os.path.isdir(archivedir):
+    os.makedirs(archivedir)
 
 #with open(os.path.join(sharedir,'querytype.txt'), 'w') as f:
 #    for code in responses['querytype']:
@@ -110,3 +117,25 @@ for i, cfg in enumerate(allConfigs):
 
         mds.writeLoss(lossLog,outdir,writemode)
         mds.writeModel(model,outdir,writemode)
+
+if jdat['archive']:
+    t = datetime.now()
+    t = t.replace(microsecond=0)
+    ISO_time_str = datetime.isoformat(t).replace(':','')
+    adir = os.path.join(rootdir,ISO_time_str)
+    os.makedirs(adir)
+    tarball = '{t}.tar.gz'.format(t=ISO_time_str)
+
+    for i in range(len(allConfigs)):
+        cfgdir = '{cfgnum:03d}'.format(cfgnum=i)
+        targdir = os.path.join(adir,cfgdir)
+        shutil.copytree(cfgdir,targdir)
+
+    shutil.copytree('shared',os.path.join(adir,'shared'))
+    shutil.copy('master.json',adir)
+
+    with tarfile.open(tarball, "w:gz") as tar:
+        tar.add(adir)
+
+    shutil.move(tarball,archivedir)
+    shutil.rmtree(adir)
