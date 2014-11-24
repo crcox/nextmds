@@ -1,14 +1,17 @@
 {
-  "version": "EXP01",
+  "version": "QuickDemo",
   "condor": false,
   "responses": "NEXT/test.csv",
-  "nepochs": 10,
+  "stopFunc": "emploss",
+  "tolerance": 1e-6,
+  "maxepochs": 500,
   "traincode":1,
   "testcode":2,
   "verbose":true,
   "log": true,
   "debug": false,
   "writemode": "text",
+  "archive": true,
   "config": [
     {
       "ndim": 2,
