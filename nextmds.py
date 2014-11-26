@@ -4,9 +4,12 @@ import struct
 import unittest
 from itertools import count
 from math import floor
-from numpy import array,dot,mat,sqrt,trace,zeros,sum,ndarray,square,insert
+from numpy import array,dot,mat,sqrt,trace,zeros,sum,ndarray,square,insert,diff
 from numpy.linalg import norm
 from numpy.random import randn,shuffle
+import shutil
+import json
+from datetime import datetime
 
 def updateModel(model,query,STEP_COUNTER):
     def StochasticGradient(Xq):
@@ -291,8 +294,10 @@ def fitModel(model, responses, opts=False):
 
         funcVal.append(sum(MDATA[opts['stopFunc']])/float(len(MDATA[opts['stopFunc']])))
         tol = opts['tolerance']
-        if epoch > 0:
-            if abs(funcVal[-1]-funcVal[-2]) < tol:
+        if epoch > 20: # Min epochs
+            diffs = diff(funcVal[-10::1][::-1]) # sample most recent 10 values, and then reverse their order
+            smooth_funcVal = sum(diffs)/float(len(diffs))
+            if smooth_funcVal < tol:
                 break
         epoch += 1
 
@@ -300,6 +305,109 @@ def fitModel(model, responses, opts=False):
         return len(TRAIN)
     else:
         return lossLog
+
+def runJob(jobdir):
+    cfgfile = os.path.join(jobdir, 'config.json')
+    lossfile = os.path.join(jobdir, 'loss.json')
+    modelfile = os.path.join(jobdir, 'model.json')
+    sharedir = 'shared'
+    archivedir = 'archive'
+    querycountfile = os.path.join(sharedir,'querydata.json')
+
+    # Check if the job is setup properly.
+    if not os.path.isdir(jobdir):
+        print "\nERROR: {d} is not a directory.".format(d=job)
+    elif not os.path.isfile(cfgfile):
+        print "\nERROR: Directory {d} does not contain config.json.".format(d=job)
+
+    with open(cfgfile,'rb') as f:
+        config = json.load(f)
+
+    # Check that the data exists
+    queryfile = config['responses']
+    if not os.path.isfile(queryfile):
+        print "\nERROR: {f} does not exist.".format(f=queryfile)
+
+    responses = load_response_data(sharedir)
+    model = initializeEmbedding(responses['nitems'],config['ndim'])
+    lossLog = fitModel(model, responses, config)
+
+    with open(lossfile,'wb') as f:
+        writer = csv.writer(f)
+        writer.writerows(lossLog)
+
+    with open(modelfile,'wb') as f:
+        writer = csv.writer(f)
+        writer.writerows(model)
+
+def load_response_data(sharedir):
+    randomfile = os.path.join(sharedir, 'queries_random.csv')
+    adaptivefile = os.path.join(sharedir, 'queries_adaptive.csv')
+    cvfile = os.path.join(sharedir, 'queries_cv.csv')
+    labelfile = os.path.join(sharedir, 'labels.txt')
+    qcountfile = os.path.join(sharedir, 'querydata.json')
+
+    Q = {'RANDOM':[],'ADAPTIVE':[],'CV':[],'labels':[]}
+
+    for xfile in [randomfile,adaptivefile,cvfile,labelfile,qcountfile]:
+        if not os.path.isfile(randomfile):
+            print "ERROR: {f} does not exist.".format(f=xfile)
+            raise IOError
+
+    with open(randomfile,'rb') as f:
+        reader = csv.reader(f)
+        for line in reader:
+            Q['RANDOM'].append(line)
+
+    with open(adaptivefile,'rb') as f:
+        reader = csv.reader(f)
+        for line in reader:
+            Q['ADAPTIVE'].append(line)
+
+    with open(cvfile,'rb') as f:
+        reader = csv.reader(f)
+        for line in reader:
+            Q['CV'].append(line)
+
+    with open(labelfile,'rb') as f:
+        reader = csv.reader(f)
+        for line in reader:
+            Q['labels'].append(line)
+
+    with open(qcountfile,'rb') as f:
+        qdata = json.load(f)
+
+    Q.update(qdata)
+
+    return(Q)
+
+def archive(archivedir):
+    rootdir = os.getcwd()
+    with open('master.json','rb') as f:
+        jdat = json.load(f)
+
+    allConfigs = jdat['config']
+
+    t = datetime.now()
+    t = t.replace(microsecond=0)
+    ISO_time_str = datetime.isoformat(t).replace(':','')
+    adir = os.path.join(rootdir,ISO_time_str)
+    os.makedirs(adir)
+    tarball = '{t}.tar.gz'.format(t=ISO_time_str)
+
+    for i in range(len(allConfigs)):
+        cfgdir = '{cfgnum:03d}'.format(cfgnum=i)
+        targdir = os.path.join(adir,cfgdir)
+        shutil.copytree(cfgdir,targdir)
+
+    shutil.copytree('shared',os.path.join(adir,'shared'))
+    shutil.copy('master.json',adir)
+
+    with tarfile.open(tarball, "w:gz") as tar:
+        tar.add(adir)
+
+    shutil.move(tarball,archivedir)
+    shutil.rmtree(adir)
 
 class ModelTests(unittest.TestCase):
     def setUp(self):

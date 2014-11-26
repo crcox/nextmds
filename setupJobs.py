@@ -9,10 +9,69 @@ from datetime import datetime
 import tarfile
 import shutil
 
+try:
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument('master')
+    p.add_argument('-r','--run',action='store_true',
+        help="In addition to setting up the directory structure, run all analyses. Useful when the analysis is being done locally.")
+    args = p.parse_args()
+except ImportError:
+    class Args:
+        def __init__(self):
+            self.master = ''
+            self.run = False
+    args = Args()
+
+    # Log required positional args
+    args.master = sys.argv[1]
+
+    # Specify translation from valid flags to valid arguments.
+    flagDict  = {'-r':'run','--r':'run'}
+
+    # Specify type of input associated with argument:
+    #   If you specify an integer, that declares the expected
+    #   number of inputs.
+    #   If you define an empty list, the number of inputs is taken
+    #   to be > 0 but bounded.
+    #   If you specify a logical value, this means that the flag
+    #   takes no inputs, and it's presence will flip this default
+    #   value.
+    tmp = {'run',False}
+
+    # Parse inputs and arguments
+    lst = sys.argv[2:]
+    while len(lst) > 0:
+        flag = lst.pop(0)
+        try:
+            arg = flagDict[flag]
+        except KeyError:
+            print '\nERROR: {f} is not a known flag\n'.format(f=flag)
+            raise KeyError
+
+        if isinstance(tmp[arg],list):
+            while lst[0] not in tmp.keys():
+                val = lst.pop(0)
+                tmp[arg].append(val)
+        elif isinstance(tmp[arg],int):
+            n = tmp[arg]
+            if n == 1:
+                val = lst.pop(0)
+                tmp[arg] = val
+            elif n > 1:
+                tmp[arg]=[0]*n
+                for i in range(n):
+                    tmp[arg][i] = lst.pop(0)
+        elif isinstance(tmp[arg],bool):
+            tmp[arg] = not temp[arg]
+
+    # Assign inputs into an args object as would be produced by argparse.
+    args.run = tmp['run']
+
 #############################################################
 #   Load data and parameters from the "master" json file    #
 #############################################################
-jsonfile = sys.argv[1]
+jsonfile = args.master
 with open(jsonfile,'rb') as f:
     jdat = json.load(f)
 
@@ -53,10 +112,6 @@ archivedir = os.path.join(rootdir,'archive')
 if not os.path.isdir(archivedir):
     os.makedirs(archivedir)
 
-#with open(os.path.join(sharedir,'querytype.txt'), 'w') as f:
-#    for code in responses['querytype']:
-#        f.write(str(code)+'\n')
-
 with open(os.path.join(sharedir,'queries_random.csv'), 'wb') as f:
     writer = csv.writer(f)
     writer.writerows(responses['RANDOM'])
@@ -92,50 +147,23 @@ for i, cfg in enumerate(allConfigs):
     # Update defaults with the new config data
     currentConfig.update(cfg)
 
-    outdir = os.path.join(rootdir,'{cfgnum:03d}'.format(cfgnum=i))
-    if os.path.isdir(outdir):
-        continue
+    jobdir = os.path.join(rootdir,'{cfgnum:03d}'.format(cfgnum=i))
+    modelfile = os.path.join(jobdir,'model.csv')
+    if os.path.isdir(jobdir):
+        if os.path.isfile(modelfile):
+            print "WARNING: {d} already contains model.csv; skipping.".format(d=jobdir)
+            continue
     else:
-        os.makedirs(outdir)
+        os.makedirs(jobdir)
 
-    with open(os.path.join(outdir,'config.json'),'wb') as f:
+    cfgfile = os.path.join(jobdir,'config.json')
+    with open(cfgfile,'wb') as f:
         json.dump(currentConfig, f, sort_keys=True, indent=2, separators=(',', ': '))
 
-    if currentConfig['condor']:
-        continue
-    else: # if not a condor build, go ahead and fit the models as you go.
-        nitem = querydata['nitems']
-        ndim = currentConfig['ndim']
-
-        try:
-            writemode = currentConfig['writemode']
-        except KeyError:
-            writemode = "BinaryAndText"
-
-        model = mds.initializeEmbedding(nitem, ndim)
-        lossLog  = mds.fitModel(model, responses, currentConfig)
-
-        mds.writeLoss(lossLog,outdir,writemode)
-        mds.writeModel(model,outdir,writemode)
-
-if jdat['archive']:
-    t = datetime.now()
-    t = t.replace(microsecond=0)
-    ISO_time_str = datetime.isoformat(t).replace(':','')
-    adir = os.path.join(rootdir,ISO_time_str)
-    os.makedirs(adir)
-    tarball = '{t}.tar.gz'.format(t=ISO_time_str)
-
+if args.run:
     for i in range(len(allConfigs)):
-        cfgdir = '{cfgnum:03d}'.format(cfgnum=i)
-        targdir = os.path.join(adir,cfgdir)
-        shutil.copytree(cfgdir,targdir)
+        jobdir = os.path.join(rootdir,'{cfgnum:03d}'.format(cfgnum=i))
+        mds.runJob(jobdir)
 
-    shutil.copytree('shared',os.path.join(adir,'shared'))
-    shutil.copy('master.json',adir)
-
-    with tarfile.open(tarball, "w:gz") as tar:
-        tar.add(adir)
-
-    shutil.move(tarball,archivedir)
-    shutil.rmtree(adir)
+    if jdat['archive']:
+        archive(archivedir)
