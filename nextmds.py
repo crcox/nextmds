@@ -76,6 +76,7 @@ def read_triplets(data_path):
         CV_l = []
 
         header = reader.next() # reads first row
+        header = [h for h in header if h not in ['targetIdent','primaryIdent','alternateIdent']]
         primary = header.index('primary')
         alternate = header.index('alternate')
         target = header.index('target')
@@ -308,8 +309,8 @@ def fitModel(model, responses, opts=False):
 
 def runJob(jobdir):
     cfgfile = os.path.join(jobdir, 'config.json')
-    lossfile = os.path.join(jobdir, 'loss.json')
-    modelfile = os.path.join(jobdir, 'model.json')
+    lossfile = os.path.join(jobdir, 'loss.csv')
+    modelfile = os.path.join(jobdir, 'model.csv')
     sharedir = 'shared'
     archivedir = 'archive'
     querycountfile = os.path.join(sharedir,'querydata.json')
