@@ -62,23 +62,24 @@ else:
     with open('.buildmd5/ChtcRun.md5','wb') as f:
         f.write(new_chtc_md5)
 
-if new_build_end:
+if new_build_env:
     print "ChtcRun has changed since last build."
 
 # In the condor environment, the first line has to be:
 #!./python277/bin/python
 # So, if the main source file is going to be executed as a remote job, then the
 # first line needs to be updated (if there is already a #! line) or added (if
-# the source file did not specify an interpretter at all).
-# In either case, a new file <srcfile>_condor.py will be written, and this is
-# the file that should be used with Condor jobs.
+# the source file did not specify an interpretter at all).  In either case, a
+# new file <srcfile>_condor.py will be written, and this is the file that
+# should be used with Condor jobs.
 with open('../generateEmbedding.py','r') as orig:
     with open('generateEmbedding_condor.py','w') as new:
         firstline = orig.readline()
-        if firstline[0:2] != '#!':
+        if firstline[0:2] == '#!':
+            new.write('#!./python277/bin/python\n')
+        else:
             new.write(firstline)
 
-        new.write('#!./python277/bin/python\n')
         shutil.copyfileobj(orig, new)
 
 os.chmod('generateEmbedding_condor.py',0755)
