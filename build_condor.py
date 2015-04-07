@@ -5,6 +5,7 @@ from distutils.core import setup
 import urllib2
 import hashlib
 import subprocess
+import pycon
 
 def download_file(url):
     import urllib2
@@ -72,17 +73,20 @@ if new_build_env:
 # the source file did not specify an interpretter at all).  In either case, a
 # new file <srcfile>_condor.py will be written, and this is the file that
 # should be used with Condor jobs.
-with open('../generateEmbedding.py','r') as orig:
-    with open('generateEmbedding_condor.py','w') as new:
-        firstline = orig.readline()
-        if firstline[0:2] == '#!':
-            new.write('#!./python277/bin/python\n')
-        else:
-            new.write(firstline)
+pycon.fixshebang('../generateEmbedding.py', 'generateEmbedding_condor.py')
 
-        shutil.copyfileobj(orig, new)
-
-os.chmod('generateEmbedding_condor.py',0755)
+# THE BELOW IS NOW ENCAPSULATED IN pycon.fixshebang
+#with open('../generateEmbedding.py','r') as orig:
+#    with open('generateEmbedding_condor.py','w') as new:
+#        firstline = orig.readline()
+#        if firstline[0:2] == '#!':
+#            new.write('#!./python277/bin/python\n')
+#        else:
+#            new.write(firstline)
+#
+#        shutil.copyfileobj(orig, new)
+#
+#os.chmod('generateEmbedding_condor.py',0755)
 
 new_script_md5 = hashlib.md5()
 with open('generateEmbedding_condor.py', 'r') as f:
@@ -113,16 +117,19 @@ with open('generateEmbedding_condor.py', 'r') as f:
 
 if new_build_env:
     print "Re-compiling python module nextmds-1.0..."
-    shutil.copy('ChtcRun/Pythonin/shared/SLIBS.tar.gz','SLIBS_base.tar.gz')
-    shutil.copy('ChtcRun/Pythonin/shared/ENV','ENV')
-    subprocess.call(['chtc_buildPythonmodules','--pversion=sl6-Python-2.7.7','--pmodules=nextmds-1.0.tar.gz'])
-    with tarfile.open('SLIBS_base.tar.gz','r:gz') as tf:
-        tf.extractall()
-    with tarfile.open('SLIBS.tar.gz','r:gz') as tf:
-        tf.extractall()
-    with tarfile.open('SLIBS.tar.gz','w:gz') as tf:
-        tf.add('SS')
-    with tarfile.open('nextmds_condor-1.0.tar.gz','w:gz') as tf:
-        tf.add('SLIBS.tar.gz')
-        tf.add('sl6-SITEPACKS.tar.gz')
-        tf.add('ENV')
+    pycon.build('nextmds-1.0.tar.gz','./ChtcRun')
+
+    # The following is now encapsulated in pycon.build
+    #shutil.copy('ChtcRun/Pythonin/shared/SLIBS.tar.gz','SLIBS_base.tar.gz')
+    #shutil.copy('ChtcRun/Pythonin/shared/ENV','ENV')
+    #subprocess.call(['chtc_buildPythonmodules','--pversion=sl6-Python-2.7.7','--pmodules=nextmds-1.0.tar.gz'])
+    #with tarfile.open('SLIBS_base.tar.gz','r:gz') as tf:
+    #    tf.extractall()
+    #with tarfile.open('SLIBS.tar.gz','r:gz') as tf:
+    #    tf.extractall()
+    #with tarfile.open('SLIBS.tar.gz','w:gz') as tf:
+    #    tf.add('SS')
+    #with tarfile.open('nextmds_condor-1.0.tar.gz','w:gz') as tf:
+    #    tf.add('SLIBS.tar.gz')
+    #    tf.add('sl6-SITEPACKS.tar.gz')
+    #    tf.add('ENV')
