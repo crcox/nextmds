@@ -10,7 +10,7 @@ import numpy.random
 import unittest
 from datetime import datetime
 # import backend next-discovery utilities for the triplet task
-sys.path.append('/home/chris/src/next-discovery/next_backend/next/learningLib/apps/PoolBasedTripletMDS/UncertaintySampling')
+sys.path.append(os.path.expanduser('~/src/next-discovery/next_backend/next/learningLib/apps/PoolBasedTripletMDS/'))
 import utilsMDS
 
 class QueryCodeStruct:
@@ -324,7 +324,7 @@ def fitModel(model, responses, opts=False):
         return lossLog
 
 def runJob(jobdir):
-    cfgfile = os.path.join(jobdir, 'config.json')
+    cfgfile = os.path.join(jobdir, 'params.json')
     lossfile = os.path.join(jobdir, 'loss.csv')
     modelfile = os.path.join(jobdir, 'model.csv')
     sharedir = 'shared'
@@ -335,7 +335,7 @@ def runJob(jobdir):
     if not os.path.isdir(jobdir):
         print "\nERROR: {d} is not a directory.".format(d=job)
     elif not os.path.isfile(cfgfile):
-        print "\nERROR: Directory {d} does not contain config.json.".format(d=job)
+        print "\nERROR: Directory {d} does not contain params.json.".format(d=job)
 
     with open(cfgfile,'rb') as f:
         config = json.load(f)
@@ -345,7 +345,30 @@ def runJob(jobdir):
     if not os.path.isfile(queryfile):
         print "\nERROR: {f} does not exist.".format(f=queryfile)
 
-    responses = load_response_data(sharedir)
+    # If the data has not already been parsed, parse it into shared.
+    OUT=read_triplets(config['responses'])
+    randomfile = os.path.join(sharedir, 'queries_random.csv')
+    adaptivefile = os.path.join(sharedir, 'queries_adaptive.csv')
+    cvfile = os.path.join(sharedir, 'queries_cv.csv')
+    labelfile = os.path.join(sharedir, 'labels.txt')
+    qcountfile = os.path.join(sharedir, 'querydata.json')
+    with open(randomfile,'wb') as f:
+        writer = csv.writer(f)
+        writer.writerows(OUT['RANDOM'])
+    with open(adaptivefile,'wb') as f:
+        writer = csv.writer(f)
+        writer.writerows(OUT['ADAPTIVE'])
+    with open(cvfile,'wb') as f:
+        writer = csv.writer(f)
+        writer.writerows(OUT['CV'])
+    with open(labelfile,'wb') as f:
+        for x in OUT['labels']:
+            f.write(x+'\n')
+    with open(qcountfile,'wb') as f:
+        json.dump(OUT['nqueries'],f)
+
+    #responses = load_response_data(sharedir)
+    responses = OUT
     #CRC code
     #model = initializeEmbedding(responses['nitems'],config['ndim'])
     #lossLog = fitModel(model, responses, config)

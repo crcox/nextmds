@@ -15,13 +15,13 @@ if len(sys.argv) > 1:
 else:
     joblist = ['./']
 
-cfgfile = 'config.json'
+cfgfile = 'params.json'
 for job in joblist:
     if not os.path.isdir(job):
         print "\nERROR: {d} is not a directory.".format(d=job)
         raise IOError
     elif not os.path.isfile(os.path.join(job,cfgfile)):
-        print "\nERROR: Directory {d} does not contain config.json.".format(d=job)
+        print "\nERROR: Directory {d} does not contain params.json.".format(d=job)
         raise IOError
 
     mds.runJob(job)
