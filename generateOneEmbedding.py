@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import activeMDS as mds
 import csv
 import json
