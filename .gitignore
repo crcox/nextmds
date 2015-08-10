@@ -4,3 +4,7 @@ Untracked
 AnimalTest/**
 !AnimalTest/master.json
 !AnimalTest/NEXT/**
+generateEmbedding_condor.py
+nextmds-*.tar.gz
+**/.condor_*
+Build/**
