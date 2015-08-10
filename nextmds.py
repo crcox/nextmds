@@ -9,8 +9,6 @@ import numpy.linalg
 import numpy.random
 import unittest
 from datetime import datetime
-# import backend next-discovery utilities for the triplet task
-sys.path.append(os.path.expanduser('~/src/next-discovery/next_backend/next/learningLib/apps/PoolBasedTripletMDS/'))
 import utilsMDS
 
 class QueryCodeStruct:
@@ -206,6 +204,7 @@ def initializeEmbedding(nitems, dimensions):
     return model
 
 def fitModel(model, responses, opts=False):
+    #### NOTE! This function is deprecated in favor of code in utilsMDS, which is part of the NEXT codebase.
     STEP_COUNTER = itertools.count(1)
     type_names = ('random','adaptive','cv')
     def printLoss(MDATA):
@@ -267,15 +266,14 @@ def fitModel(model, responses, opts=False):
         MDATA_test['emploss'].append(QDATA['emploss'])
         MDATA_test['hingeloss'].append(QDATA['hingeloss'])
 
-    if opts['log'] == True:
-        lossLog.append(
-                [
-                    numpy.sum(MDATA['emploss'])/float(len(MDATA['emploss'])),
-                    numpy.sum(MDATA['hingeloss']),
-                    numpy.sum(MDATA_test['emploss'])/float(len(MDATA_test['emploss'])),
-                    numpy.sum(MDATA_test['hingeloss'])
-                ]
-            )
+    lossLog.append(
+            [
+                numpy.sum(MDATA['emploss'])/float(len(MDATA['emploss'])),
+                numpy.sum(MDATA['hingeloss']),
+                numpy.sum(MDATA_test['emploss'])/float(len(MDATA_test['emploss'])),
+                numpy.sum(MDATA_test['hingeloss'])
+            ]
+        )
 
     while epoch < opts['maxepochs']:
         MDATA = {'emploss': [], 'hingeloss': [], 'epoch': epoch}
@@ -382,8 +380,10 @@ def runJob(jobdir):
     training = training[0:ix]
     model, trainloss = utilsMDS.computeEmbedding(responses['nitems'],config['ndim'],
             S=training,
-            max_num_passes=config['maxepochs'],
+            max_num_passes_SGD=config['max_num_passes_SGD'],
+            max_iter_GD=config['max_iter_GD'],
             num_random_restarts=config['randomRestarts'],
+            verbose=config['verbose'],
             epsilon=config['epsilon'])
     trainloss, hinge_loss = utilsMDS.getLoss(model,training)
     testloss, hinge_loss = utilsMDS.getLoss(model,testing)
