@@ -226,7 +226,7 @@ def computeEmbedding(n,d,S,num_random_restarts=0,max_num_passes_SGD=0,max_iter_G
         X_new,emp_loss_new,hinge_loss_new,acc_new = computeEmbeddingWithGD(X,S,max_iters=max_iter_GD,max_norm=max_norm,epsilon=epsilon,verbose=verbose)
         te_gd = time.time()-ts
 
-        if emp_loss_new<emp_loss_old:
+        if (emp_loss_old == float('inf')) or (emp_loss_new<emp_loss_old):
             X_old = X_new
             emp_loss_old = emp_loss_new
 
