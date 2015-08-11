@@ -124,7 +124,7 @@ expected location.
                 if key is 'nqueries':
                     json.dump(responses[key],f)
                 elif key is 'labels':
-                    for x in OUT['labels']:
+                    for x in responses['labels']:
                         f.write(x+'\n')
                 else:
                     writer = csv.writer(f)
