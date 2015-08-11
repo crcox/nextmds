@@ -16,30 +16,29 @@ class QueryCodeStruct:
 
 QueryCodes = QueryCodeStruct(keys=('RANDOM','ADAPTIVE','CV'))
 
-def read_triplets(data_path):
-    with open(data_path, 'rb') as ifile:
-        reader = csv.reader(ifile,escapechar='\\')
+def read_triplets(ifile):
+    reader = csv.reader(ifile,escapechar='\\')
 
-        print "starting read..."
-        QUERIES = {k: [] for k in QueryCodes.keys}
+    print "starting read..."
+    QUERIES = {k: [] for k in QueryCodes.keys}
 
-        header = reader.next() # reads first row
-        header = [h for h in header if h not in ['targetIdent','primaryIdent','alternateIdent']]
-        primary = header.index('primary')
-        alternate = header.index('alternate')
-        target = header.index('target')
-        qt = header.index('queryType')
-        labels = []
-        query_type_count = {k: 0 for k in QueryCodes.keys}
-        for row in reader: # reads rest of rows
-            if not len(row) == len(header):
-                raise IndexError
-            query = [ row[i].strip() for i in (primary,alternate,target) ]
-            query_type = int(row[qt].strip())
-            [ labels.append(x) for x in query if not x in labels ]
+    header    = reader.next() # reads first row
+    header    = [h for h in header if h not in ['targetIdent','primaryIdent','alternateIdent']]
+    primary   = header.index('primary')
+    alternate = header.index('alternate')
+    target    = header.index('target')
+    qt        = header.index('queryType')
+    labels    = []
+    query_type_count = {k: 0 for k in QueryCodes.keys}
+    for row in reader: # reads rest of rows
+        if not len(row) == len(header):
+            raise IndexError
+        query = [ row[i].strip() for i in (primary,alternate,target) ]
+        query_type = int(row[qt].strip())
+        [ labels.append(x) for x in query if not x in labels ]
 
-            QUERIES[QueryCodes.translate(query_type)].append(query)
-            query_type_count[QueryCodes.translate(query_type)] += 1
+        QUERIES[QueryCodes.translate(query_type)].append(query)
+        query_type_count[QueryCodes.translate(query_type)] += 1
 
     item_count = len(labels)
     intconv = False
@@ -78,12 +77,10 @@ def read_triplets(data_path):
 
     return OUT
 
-def runJob(jobdir):
-    cfgfile        = os.path.join(jobdir, 'params.json')
+def runJob(jobdir, cfgfile, sharedir):
+    cfgfile        = os.path.join(jobdir, cfgfile)
     lossfile       = os.path.join(jobdir, 'loss.csv')
     modelfile      = os.path.join(jobdir, 'model.csv')
-    sharedir       = 'shared'
-    archivedir     = 'archive'
     querycountfile = os.path.join(sharedir,'querydata.json')
 
     WriteFileErrorMessage = """
@@ -105,8 +102,8 @@ expected location.
     queryfile = config['responses']
     try:
         with open(queryfile, 'r') as f:
-            responses = read.triplets(f)
-    except:
+            responses = read_triplets(f)
+    except IOError:
         print ReadFileErrorMessage.format(path=queryfile)
         raise
 
@@ -121,7 +118,7 @@ expected location.
     if not os.path.isdir(sharedir):
         os.makedir(sharedir)
 
-    for key, path in referencedata.items:
+    for key, path in referencedata.items():
         try:
             with open(path, 'wb') as f:
                 if key is 'nqueries':
@@ -171,174 +168,3 @@ expected location.
     except IOError:
         print WriteFileErrorMessage.format(path=lossfile)
         raise
-
-class ModelTests(unittest.TestCase):
-    def setUp(self):
-        self.primary = 0
-        self.alternate = 1
-        self.target = 2
-        self.reg=10
-
-    def testModelIsCorrect(self):
-        def modelCheck(model, query):
-            d1 = numpy.sqrt(numpy.sum(numpy.square(model[query[0],] - model[query[2],])))
-            d2 = numpy.sqrt(numpy.sum(numpy.square(model[query[1],] - model[query[2],])))
-            return(d1<d2)
-
-        MODEL = numpy.mat([[1.0,1.0,1.0],[2.0,2.0,2.0],[0.0,0.0,0.0]])
-        QUERY = [self.primary,self.alternate,self.target]
-        self.failUnless(modelCheck(MODEL,QUERY))
-
-    def testModelImproves(self):
-        MODEL = numpy.mat([[1.5,1.5,1.5],[1.5,1.5,1.5],[0.0,0.0,0.0]])
-        MODEL_orig = MODEL.copy()
-        QUERY = [self.primary,self.alternate,self.target]
-        # Remember that lists/numpy arrays are mutable, so they are updated in place.
-        # updateModel() will update MODEL without needing to return a new model.
-        STEP_COUNTER = itertools.count(1)
-        QDATA = updateModel(MODEL, QUERY, 10, STEP_COUNTER)
-        self.failUnless(numpy.sum(MODEL[0,:]) < numpy.sum(MODEL_orig[0,:]))
-
-    def testRight_eloss(self):
-        # Right
-        MODEL = numpy.mat([[1.0,1.0,1.0],[1.5,1.5,1.5],[0.0,0.0,0.0]])
-        QUERY = [self.primary,self.alternate,self.target]
-        STEP_COUNTER = itertools.count(1)
-        QDATA = updateModel(MODEL, QUERY, 10, STEP_COUNTER)
-        self.failUnless(QDATA['emploss'] == 0)
-
-    def testWrong_eloss(self):
-        # Wrong
-        MODEL = numpy.mat([[2.0,2.0,2.0],[1.5,1.5,1.5],[0.0,0.0,0.0]])
-        QUERY = [self.primary,self.alternate,self.target]
-        STEP_COUNTER = itertools.count(1)
-        QDATA = updateModel(MODEL, QUERY, 10, STEP_COUNTER)
-        self.failUnless(QDATA['emploss'] == 1)
-
-    def testEqualIsWrong_eloss(self):
-        # Wrong
-        MODEL = numpy.mat([[1.5,1.5,1.5],[1.5,1.5,1.5],[0.0,0.0,0.0]])
-        QUERY = [self.primary,self.alternate,self.target]
-        STEP_COUNTER = itertools.count(1)
-        QDATA = updateModel(MODEL, QUERY, 10, STEP_COUNTER)
-        self.failUnless(QDATA['emploss'] == 1)
-
-    def testRight_hloss(self):
-        # Right
-        MODEL = numpy.mat([[1.0,1.0,1.0],[1.5,1.5,1.5],[0.0,0.0,0.0]])
-        QUERY = [self.primary,self.alternate,self.target]
-        STEP_COUNTER = itertools.count(1)
-        QDATA = updateModel(MODEL, QUERY, 10, STEP_COUNTER)
-        self.failUnless(QDATA['hingeloss'] == 0)
-
-    def testWrong_hloss(self):
-        # Wrong
-        MODEL = numpy.mat([[2.0,2.0,2.0],[1.5,1.5,1.5],[0.0,0.0,0.0]])
-        QUERY = [self.primary,self.alternate,self.target]
-        STEP_COUNTER = itertools.count(1)
-        QDATA = updateModel(MODEL, QUERY, 10, STEP_COUNTER)
-        self.failUnless(QDATA['hingeloss'] > 1)
-
-    def testEqualIsWrong_hloss(self):
-        # Wrong
-        MODEL = numpy.mat([[1.5,1.5,1.5],[1.5,1.5,1.5],[0.0,0.0,0.0]])
-        QUERY = [self.primary,self.alternate,self.target]
-        STEP_COUNTER = itertools.count(1)
-        QDATA = updateModel(MODEL, QUERY, 10, STEP_COUNTER)
-        self.failUnless(QDATA['hingeloss'] == 1)
-
-    def testStepCounter(self):
-        def a(c):
-            for i in range(10):
-                n = next(c)
-            return n
-        STEP_COUNTER = itertools.count(1)
-        for i in range(10):
-            n = a(STEP_COUNTER)
-        print n
-        self.failUnless(n==100)
-
-class IOTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        # Remember that lists are mutable, and so updates to model that take
-        # place within fit model will have affects beyond the scope of the
-        # function.
-        data_path = 'Test/NEXT/test.csv'
-        cls.responses = read_triplets(data_path)
-        cls.model = initializeEmbedding(cls.responses['nitems'],3)
-        cls.lossLog = fitModel(cls.model, cls.responses)
-        with open(data_path, 'rb') as ifile:
-            reader = csv.reader(ifile,escapechar='\\')
-            header = reader.next() # reads first row
-            primary = header.index('primary')
-            alternate = header.index('alternate')
-            target = header.index('target')
-            cls.check = []
-            for row in reader: # reads rest of rows
-                cls.check.append([ row[i].strip() for i in (primary,alternate,target) ])
-
-    def testRead_nitems(self):
-        self.failUnless(self.responses['nitems']==7)
-
-    def testRead_nqueries(self):
-        check = {'random':2, 'adaptive':2, 'cv':2}
-        match = [check[key] == val for key,val in self.responses['nqueries'].items()]
-        self.failUnless(all(match))
-
-    def testRead_ListSizes(self):
-        check = (2,2,2)
-        keys = ('random','adaptive','cv')
-        sz = [len(self.responses[k.upper()]) for k in keys]
-        print sz
-        match = [sz[i] == check[i] for i in range(3)]
-        self.failUnless(all(match))
-
-#    def testRead_queryConstruction(self):
-#        q = [[self.responses['labels'][i] for i in indexes] for indexes in self.responses['queries']]
-#        self.failUnless(q == self.check)
-#
-    def testWrite_model(self):
-        writeModel(self.model,'/tmp','text')
-        self.failUnless(True)
-
-    def testWrite_loss(self):
-        writeLoss(self.lossLog,'/tmp','text')
-        self.failUnless(True)
-
-    def test_proportion(self):
-        opts = {
-            'proportion': 0.5,
-            'nepochs': 10,
-            'traincode': 1,
-            'testcode': 2,
-            'verbose': True,
-            'log': True,
-            'debug':True
-        }
-        n = fitModel(self.model, self.responses, opts)
-        print '\n\n\n{n}\n\n\n'.format(n=n)
-        self.failUnless(n==1)
-
-# class ImportantTests(unittest.TestCase):
-#     def test_queryCheck(self):
-#         """This confirms that the internal coding scheme for items exactly
-#         maps to the original data."""
-#         with open('/Users/Chris/activeMDS/example/test.csv', 'rb') as ifile:
-#             reader = csv.reader(ifile,escapechar='\\')
-#             header = reader.next() # reads first row
-#             primary = header.index('primary')
-#             alternate = header.index('alternate')
-#             target = header.index('target')
-#             queries = []
-#             for row in reader: # reads rest of rows
-#                 queries.append([ row[i].strip() for i in (primary,alternate,target) ])
-#
-#         q = [[self.responses['labels'][i] for i in indexes] for indexes in self.responses['queries']]
-#         self.failUnless(q == queries)
-
-def main():
-    unittest.main()
-
-if __name__ == "__main__":
-    main()
