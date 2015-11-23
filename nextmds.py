@@ -161,6 +161,10 @@ expected location.
                 max_norm = config['max_norm'],
                 epsilon = config['epsilon'],
                 verbose = config['verbose'])
+
+        trainloss, hinge_loss, trainlogloss = utilsMDS.getLoss(model,training)
+        testloss, hinge_loss, testlogloss = utilsMDS.getLoss(model,testing)
+
     else:
         if 'mu' in config.keys() and config['mu']:
             print "Value for `mu` is being ignored. Only relevant to CrowdKernel."
@@ -177,8 +181,8 @@ expected location.
                 verbose = config['verbose'],
                 epsilon = config['epsilon'])
 
-    trainloss, hinge_loss = utilsMDS.getLoss(model,training)
-    testloss, hinge_loss = utilsMDS.getLoss(model,testing)
+        trainloss, hinge_loss = utilsMDS.getLoss(model,training)
+        testloss, hinge_loss = utilsMDS.getLoss(model,testing)
 
     try:
         with open(lossfile,'wb') as f:
