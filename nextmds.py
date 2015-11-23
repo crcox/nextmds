@@ -4,7 +4,6 @@ import os
 import sys
 import numpy
 import unittest
-import utilsMDS
 
 class QueryCodeStruct:
     def __init__(self,keys):
@@ -99,6 +98,12 @@ expected location.
         print ReadFileErrorMessage.format(path=cfgfile)
         raise
 
+    useCrowdKernel = config['ActiveLearningMethod'].lower() in ['crowdkernel','ck']
+    if useCrowdKernel:
+        import utilsCrowdKernel as utilsMDS
+    else:
+        import utilsMDS as utilsMDS
+
     queryfile = config['responses']
     try:
         with open(queryfile, 'r') as f:
@@ -143,15 +148,34 @@ expected location.
     ix = max(int(numpy.floor(n*config['proportion'])),1)
     training = training[0:ix]
 
-    model, trainloss = utilsMDS.computeEmbedding(
-            n = responses['nitems'],
-            d = config['ndim'],
-            S = training,
-            max_num_passes_SGD = config['max_num_passes_SGD'],
-            max_iter_GD = config['max_iter_GD'],
-            num_random_restarts = config['randomRestarts'],
-            verbose = config['verbose'],
-            epsilon = config['epsilon'])
+    if useCrowdKernel:
+        if 'max_iter_GD' in config.keys() and config['max_iter_GD']:
+            print "Value for `max_iter_GD` is being ignored. Not exposed as argument to CrowdKernel."
+        model, trainloss = utilsMDS.computeEmbedding(
+                n = responses['nitems'],
+                d = config['ndim'],
+                S = training,
+                mu = config['mu'],
+                num_random_restarts = config['randomRestarts'],
+                max_num_passes = config['max_num_passes_SGD'],
+                max_norm = config['max_norm'],
+                epsilon = config['epsilon'],
+                verbose = config['verbose'])
+    else:
+        if 'mu' in config.keys() and config['mu']:
+            print "Value for `mu` is being ignored. Only relevant to CrowdKernel."
+        if 'max_norm' in config.keys() and config['max_norm']:
+            print "Value for `max_norm` is being ignored. Only relevant to CrowdKernel."
+
+        model, trainloss = utilsMDS.computeEmbedding(
+                n = responses['nitems'],
+                d = config['ndim'],
+                S = training,
+                max_num_passes_SGD = config['max_num_passes_SGD'],
+                max_iter_GD = config['max_iter_GD'],
+                num_random_restarts = config['randomRestarts'],
+                verbose = config['verbose'],
+                epsilon = config['epsilon'])
 
     trainloss, hinge_loss = utilsMDS.getLoss(model,training)
     testloss, hinge_loss = utilsMDS.getLoss(model,testing)
