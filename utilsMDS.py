@@ -4,7 +4,7 @@ utilsMDS.py
 author: Kevin Jamieson (kevin.g.jamieson@gmail.com)
 edited: 1/18/15
 
-This module has methods that assist with non-metric multidimensional scaling.
+This module has methods that assist with non-metric multidimensional scaling. 
 
 If you're trying to COMPUTE an embedding, you might simply call:
     X,emp_loss = computeEmbedding(n,d,S)
@@ -32,15 +32,16 @@ def main():
 
     Creates some fake data and finds an embedding
     """
-
+    
     # generate some fake data
     n = 30
     d = 2
     m = int(ceil(40*n*d*log(n)))  # number of labels
-
-    p = 0.0; # error rate
-
-    S = []
+    
+    p = 0.1; # error rate
+    
+    Strain = []
+    Stest = []
     Xtrue = randn(n,d);
     for iter in range(0,m):
 
@@ -57,31 +58,40 @@ def main():
         if R<p:
             q = [ q[i] for i in [1,0,2]]
 
-        S.append(q)
+        if iter < .9*m:
+            Strain.append(q)
+        else:
+            Stest.append(q)
 
 
-    # compute embedding
-    X,emp_loss = computeEmbedding(n,d,S,num_random_restarts=2,epsilon=0.01,verbose=True)
+    # compute embedding 
+    X,emp_loss_train = computeEmbedding(n,d,Strain,num_random_restarts=2,epsilon=0.01,verbose=True)
 
+    # compute loss on test set
+    emp_loss_test,hinge_loss_test = getLoss(X,Stest)
+
+    print
+    print 'Training loss = %f,   Test loss = %f' %(emp_loss_train,emp_loss_test)
+    
 
 
 def getRandomQuery(X):
     """
-    Outputs a triplet [i,j,k] chosen uniformly at random from all possible triplets
+    Outputs a triplet [i,j,k] chosen uniformly at random from all possible triplets 
     and score = abs( ||x_i - x_k||^2 - ||x_j - x_k||^2 )
-
+    
     Inputs:
         (numpy.ndarray) X : matrix from which n is extracted from and score is derived
-
+        
     Outputs:
         [(int) i, (int) j, (int) k] q : where k in [n], i in [n]-k, j in [n]-k-j
         (float) score : signed distance to current solution (positive if it agrees, negative otherwise)
-
+        
     Usage:
         q,score = getRandomQuery(X)
     """
     n,d = X.shape
-
+    
     i = randint(n)
     j = randint(n)
     while (j==i):
@@ -90,7 +100,7 @@ def getRandomQuery(X):
     while (k==i) | (k==j):
         k = randint(n)
     q = [i, j, k]
-
+    
     score = getTripletScore(X,q)
 
     return q,score
@@ -98,7 +108,7 @@ def getRandomQuery(X):
 def getTripletScore(X,q):
     """
     Given X,q=[i,j,k] returns score = ||x_j - x_k||^2 - ||x_i - x_k||^2
-    If score > 0 then the triplet agrees with the embedding, otherwise it does not
+    If score > 0 then the triplet agrees with the embedding, otherwise it does not 
 
     Usage:
         score = getTripletScore(X,[3,4,5])
@@ -125,12 +135,12 @@ def getLoss(X,S):
 
     emp_loss = 0 # 0/1 loss
     hinge_loss = 0 # hinge loss
-
+    
     for q in S:
         loss_ijk = getTripletScore(X,q)
 
         hinge_loss = hinge_loss + max(0,1. - loss_ijk)
-
+            
         if loss_ijk < 0:
             emp_loss = emp_loss + 1.
 
@@ -156,7 +166,7 @@ def getGradient(X,S):
     # pattern for computing gradient
     H = mat([[2.,0.,-2.],[ 0.,  -2.,  2.],[ -2.,  2.,  0.]])
 
-    # compute gradient
+    # compute gradient 
     G = zeros((n,d))
     for q in S:
         score = getTripletScore(X,q)
@@ -183,7 +193,7 @@ def getGradient(X,S):
 
     return G,avg_grad_row_norm_sq,max_grad_row_norm_sq,avg_row_norm_sq
 
-def computeEmbedding(n,d,S,num_random_restarts=0,max_num_passes_SGD=0,max_iter_GD=0,max_norm=0,epsilon=0.01,verbose=False):
+def computeEmbedding(n,d,S,num_random_restarts=0,max_num_passes=0,max_iter_GD=0,max_norm=0,epsilon=0.01,verbose=False):
     """
     Computes an embedding of n objects in d dimensions usin the triplets of S.
     S is a list of triplets such that for each q in S, q = [i,j,k] means that
@@ -196,7 +206,7 @@ def computeEmbedding(n,d,S,num_random_restarts=0,max_num_passes_SGD=0,max_iter_G
         (int) num_random_restarts : number of random restarts (nonconvex
         optimization, may converge to local minima). E.g., 9 random restarts
         means take the best of 10 runs of the optimization routine.
-        (int) max_num_passes_SGD : maximum number of passes over data SGD makes before proceeding to GD (default equals 16)
+        (int) max_num_passes : maximum number of passes over data SGD makes before proceeding to GD (default equals 16)
         (int) max_iter_GD: maximum number of GD iteration (default equals 50)
         (float) max_norm : the maximum allowed norm of any one object (default equals 10*d)
         (float) epsilon : parameter that controls stopping condition, smaller means more accurate (default = 0.01)
@@ -204,29 +214,35 @@ def computeEmbedding(n,d,S,num_random_restarts=0,max_num_passes_SGD=0,max_iter_G
 
     Outputs:
         (numpy.ndarray) X : output embedding
-        (float) gamma : Equal to a/b where a is max row norm of the gradient matrix and b is the avg row norm of the centered embedding matrix X. This is a means to determine how close the current solution is to the "best" solution.
+        (float) gamma : Equal to a/b where a is max row norm of the gradient matrix and b is the avg row norm of the centered embedding matrix X. This is a means to determine how close the current solution is to the "best" solution.  
     """
 
-    if max_num_passes_SGD==0:
+    if max_num_passes==0:
         max_num_passes_SGD = 16
+    else:
+        max_num_passes_SGD = max_num_passes
+
 
     if max_iter_GD ==0:
         max_iter_GD = 50
 
+    X_old = None
     emp_loss_old = float('inf')
     num_restarts = -1
     while num_restarts < num_random_restarts:
         num_restarts += 1
 
         ts = time.time()
+
         X,acc = computeEmbeddingWithEpochSGD(n,d,S,max_num_passes=max_num_passes_SGD,max_norm=max_norm,epsilon=epsilon,verbose=verbose)
         te_sgd = time.time()-ts
 
         ts = time.time()
         X_new,emp_loss_new,hinge_loss_new,acc_new = computeEmbeddingWithGD(X,S,max_iters=max_iter_GD,max_norm=max_norm,epsilon=epsilon,verbose=verbose)
+
         te_gd = time.time()-ts
 
-        if (emp_loss_old == float('inf')) or (emp_loss_new<emp_loss_old):
+        if emp_loss_new<emp_loss_old:
             X_old = X_new
             emp_loss_old = emp_loss_new
 
@@ -237,10 +253,10 @@ def computeEmbedding(n,d,S,num_random_restarts=0,max_num_passes_SGD=0,max_iter_G
 
 def computeEmbeddingWithEpochSGD(n,d,S,max_num_passes=0,max_norm=0,epsilon=0.01,a0=0.1,verbose=False):
     """
-    Performs epochSGD where step size is constant across each epoch, epochs are
+    Performs epochSGD where step size is constant across each epoch, epochs are 
     doubling in size, and step sizes are getting cut in half after each epoch.
-    This has the effect of having a step size decreasing like 1/T. a0 defines
-    the initial step size on the first epoch.
+    This has the effect of having a step size decreasing like 1/T. a0 defines 
+    the initial step size on the first epoch. 
 
     S is a list of triplets such that for each q in S, q = [i,j,k] means that
     object k should be closer to i than j.
@@ -248,7 +264,7 @@ def computeEmbeddingWithEpochSGD(n,d,S,max_num_passes=0,max_norm=0,epsilon=0.01,
     Inputs:
         (int) n : number of objects in embedding
         (int) d : desired dimension
-        (list [(int) i, (int) j,(int) k]) S : list of triplets, i,j,k must be in [n].
+        (list [(int) i, (int) j,(int) k]) S : list of triplets, i,j,k must be in [n]. 
         (int) max_num_passes : maximum number of passes over data (default equals 16)
         (float) max_norm : the maximum allowed norm of any one object (default equals 10*d)
         (float) epsilon : parameter that controls stopping condition (default = 0.01)
@@ -257,7 +273,7 @@ def computeEmbeddingWithEpochSGD(n,d,S,max_num_passes=0,max_norm=0,epsilon=0.01,
 
     Outputs:
         (numpy.ndarray) X : output embedding
-        (float) gamma : Equal to a/b where a is max row norm of the gradient matrix and b is the avg row norm of the centered embedding matrix X. This is a means to determine how close the current solution is to the "best" solution.
+        (float) gamma : Equal to a/b where a is max row norm of the gradient matrix and b is the avg row norm of the centered embedding matrix X. This is a means to determine how close the current solution is to the "best" solution.  
 
 
     Usage:
@@ -344,7 +360,7 @@ def computeEmbeddingWithGD(X,S,max_iters=0,max_norm=0,epsilon=0.01,c1=0.0001,rho
 
     Inputs:
         (numpy.ndarray) X : input embedding
-        (list [(int) i, (int) j,(int) k]) S : list of triplets, i,j,k must be in [n].
+        (list [(int) i, (int) j,(int) k]) S : list of triplets, i,j,k must be in [n]. 
         (int) max_iters : maximum number of iterations of SGD (default equals 40*len(S))
         (float) max_norm : the maximum allowed norm of any one object (default equals 10*d)
         (float) epsilon : parameter that controls stopping condition, exits if gamma<epsilon (default = 0.01)
@@ -356,7 +372,7 @@ def computeEmbeddingWithGD(X,S,max_iters=0,max_norm=0,epsilon=0.01,c1=0.0001,rho
         (numpy.ndarray) X : output embedding
         (float) emp_loss : output 0/1 error
         (float) hinge_loss : output hinge loss
-        (float) gamma : Equal to a/b where a is max row norm of the gradient matrix and b is the avg row norm of the centered embedding matrix X. This is a means to determine how close the current solution is to the "best" solution.
+        (float) gamma : Equal to a/b where a is max row norm of the gradient matrix and b is the avg row norm of the centered embedding matrix X. This is a means to determine how close the current solution is to the "best" solution.  
 
 
     Usage:
