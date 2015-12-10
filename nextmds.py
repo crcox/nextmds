@@ -5,39 +5,44 @@ import sys
 import numpy
 import unittest
 
-class QueryCodeStruct:
-    def __init__(self,keys):
-        self.keys = keys
-        self.n = len(self.keys)
-
-    def translate(self,qcode):
-        return self.keys[qcode]
-
-QueryCodes = QueryCodeStruct(keys=('RANDOM','ADAPTIVE','CV'))
 
 def read_triplets(ifile):
     reader = csv.reader(ifile,escapechar='\\')
 
     print "starting read..."
-    QUERIES = {k: [] for k in QueryCodes.keys}
-
-    header    = reader.next() # reads first row
-    header    = [h for h in header if h not in ['targetIdent','primaryIdent','alternateIdent']]
-    primary   = header.index('primary')
-    alternate = header.index('alternate')
-    target    = header.index('target')
-    qt        = header.index('queryType')
-    labels    = []
-    query_type_count = {k: 0 for k in QueryCodes.keys}
+    header   = reader.next() # reads first row
+    left     = header.index('Left')
+    right    = header.index('Right')
+    target   = header.index('Center')
+    answer   = header.index('Answer')
+    alglabel = header.index('Alg Label')
+    labels   = []
+    QUERIES  = {}
+    query_type_count = {}
     for row in reader: # reads rest of rows
         if not len(row) == len(header):
             raise IndexError
+
+        if row[left] == row[answer]:
+            primary = left
+            alternate = right
+        else:
+            primary = right
+            alternate = left
+
         query = [ row[i].strip() for i in (primary,alternate,target) ]
-        query_type = int(row[qt].strip())
+        query = [ row[i].strip() for i in (left,right,target) ]
+        query_answer = row[answer].strip()
+        query_type = row[alglabel].strip()
+
         [ labels.append(x) for x in query if not x in labels ]
 
-        QUERIES[QueryCodes.translate(query_type)].append(query)
-        query_type_count[QueryCodes.translate(query_type)] += 1
+        if not query_type in QUERIES.keys():
+            query_type_count[query_type] = 0
+            QUERIES[query_type] = []
+
+        QUERIES[query_type].append(query)
+        query_type_count[query_type] += 1
 
     item_count = len(labels)
     intconv = False
@@ -58,7 +63,7 @@ def read_triplets(ifile):
         # against queries.
         labels = [str(x) for x in labels]
 
-    OUT = {k:[] for k in QueryCodes.keys}
+    OUT = {k:[] for k in QUERIES.keys()}
     OUT['nitems'] = item_count
     OUT['nqueries'] = query_type_count
     OUT['labels'] = labels
@@ -71,9 +76,10 @@ def read_triplets(ifile):
             n += 1
 
     print "done reading! n={items:d} |S|={queries:d}".format(items=item_count, queries=n)
-    for i,k in enumerate(QueryCodes.keys):
+    for i,k in enumerate(QUERIES.keys()):
         print '{i}: {k:>8s} = {n: 4d}'.format(i=i,k=k,n=query_type_count[k])
 
+    print ''
     return OUT
 
 def runJob(jobdir, cfgfile, sharedir):
@@ -113,12 +119,11 @@ expected location.
         raise
 
     referencedata = {
-            "RANDOM"   : os.path.join(sharedir, 'queries_random.csv'),
-            "ADAPTIVE" : os.path.join(sharedir, 'queries_adaptive.csv'),
-            "CV"       : os.path.join(sharedir, 'queries_cv.csv'),
             "labels"   : os.path.join(sharedir, 'labels.txt'),
             "nqueries" : os.path.join(sharedir, 'querydata.json')
         }
+    for AlgLab in responses.keys():
+        referencedata[AlgLab] = os.path.join(sharedir, 'responses_{a:s}.csv'.format(a=AlgLab))
 
     if not os.path.isdir(sharedir):
         os.makedir(sharedir)
@@ -131,6 +136,8 @@ expected location.
                 elif key is 'labels':
                     for x in responses['labels']:
                         f.write(x+'\n')
+                elif key is 'nitems':
+                    pass
                 else:
                     writer = csv.writer(f)
                     writer.writerows(responses[key])
@@ -138,15 +145,13 @@ expected location.
             print WriteFileErrorMessage.format(path=path)
             raise
 
-    print QueryCodes.translate(config['traincode'])
-    print QueryCodes.translate(config['testcode'])
-
-    training = responses[QueryCodes.translate(config['traincode'])]
-    testing = responses[QueryCodes.translate(config['testcode'])]
+    training = responses[config['traincode']]
+    testing = responses[config['testcode']]
 
     n = len(training)
     ix = max(int(numpy.floor(n*config['proportion'])),1)
     training = training[0:ix]
+    print "Training set size: {n:d} ({p:.1f}%)".format(n=len(training),p=config['proportion']*100)
 
     if useCrowdKernel:
         if 'max_iter_GD' in config.keys() and config['max_iter_GD']:
@@ -175,7 +180,7 @@ expected location.
                 n = responses['nitems'],
                 d = config['ndim'],
                 S = training,
-                max_num_passes_SGD = config['max_num_passes_SGD'],
+                max_num_passes = config['max_num_passes_SGD'],
                 max_iter_GD = config['max_iter_GD'],
                 num_random_restarts = config['randomRestarts'],
                 verbose = config['verbose'],
