@@ -2,9 +2,6 @@ import csv
 import json
 import os
 import sys
-import numpy
-import unittest
-
 
 def read_triplets(ifile):
     reader = csv.reader(ifile,escapechar='\\')
@@ -149,7 +146,7 @@ expected location.
     testing = responses[config['testcode']]
 
     n = len(training)
-    ix = max(int(numpy.floor(n*config['proportion'])),1)
+    ix = max(int(n*config['proportion']),1)
     training = training[0:ix]
     print "Training set size: {n:d} ({p:.1f}%)".format(n=len(training),p=config['proportion']*100)
 
