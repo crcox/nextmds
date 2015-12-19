@@ -2,6 +2,8 @@ import csv
 import json
 import os
 import sys
+import operator
+import datetime
 
 def read_triplets(ifile):
     reader = csv.reader(ifile,escapechar='\\')
@@ -123,7 +125,7 @@ expected location.
         referencedata[AlgLab] = os.path.join(sharedir, 'responses_{a:s}.csv'.format(a=AlgLab))
 
     if not os.path.isdir(sharedir):
-        os.makedir(sharedir)
+        os.makedirs(sharedir)
 
     for key, path in referencedata.items():
         try:
@@ -144,6 +146,12 @@ expected location.
 
     training = responses[config['traincode']]
     testing = responses[config['testcode']]
+
+    # sort training set by datetime
+    for row in training:
+        row[1] = datetime.datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S.%f')
+
+    training = sorted(training, key=operator.itemgetter(1))
 
     n = len(training)
     ix = max(int(n*config['proportion']),1)
