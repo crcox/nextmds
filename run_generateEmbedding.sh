@@ -70,6 +70,9 @@ exe_name=$0
 exe_dir=`dirname "$0"`
 echo "Unpack Python distribution"
 tar xzf "python.tar.gz"
+echo "Unpack and install ATLAS libraries"
+tar xzf "atlas.tar.gz"
+export LD_LIBRARY_PATH="${HOME}/usr/lib64/atlas":${LD_LIBRARY_PATH}
 echo "Unpack Data"
 tar xzf "data.tar.gz"
 export PATH=$(pwd)/python/bin:$PATH

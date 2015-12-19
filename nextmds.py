@@ -15,9 +15,11 @@ def read_triplets(ifile):
     target   = header.index('Center')
     answer   = header.index('Answer')
     alglabel = header.index('Alg Label')
+    timestamp= header.index('Timestamp')
     labels   = []
     QUERIES  = {}
     query_type_count = {}
+
     for row in reader: # reads rest of rows
         if not len(row) == len(header):
             raise IndexError
@@ -29,9 +31,7 @@ def read_triplets(ifile):
             primary = right
             alternate = left
 
-        query = [ row[i].strip() for i in (primary,alternate,target) ]
-        query = [ row[i].strip() for i in (left,right,target) ]
-        query_answer = row[answer].strip()
+        query = [ row[i].strip() for i in (primary,alternate,target,timestamp) ]
         query_type = row[alglabel].strip()
 
         [ labels.append(x) for x in query if not x in labels ]
@@ -70,7 +70,7 @@ def read_triplets(ifile):
     n = 0
     for k, qlist in QUERIES.items():
         for queryLabels in qlist:
-            queryIndices = [ labels.index(x) for x in queryLabels ]
+            queryIndices = [ labels.index(x) for x in queryLabels[0:3] ] + [queryLabels[3]]
             OUT[k].append(queryIndices)
             n += 1
 
@@ -149,9 +149,13 @@ expected location.
 
     # sort training set by datetime
     for row in training:
-        row[1] = datetime.datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S.%f')
+        row[3] = datetime.datetime.strptime(row[3], '%Y-%m-%d %H:%M:%S.%f')
 
-    training = sorted(training, key=operator.itemgetter(1))
+    training = sorted(training, key=operator.itemgetter(3))
+
+    # Strip Timestamps
+    training = [row[0:3] for row in training]
+    testing = [row[0:3] for row in testing]
 
     n = len(training)
     ix = max(int(n*config['proportion']),1)
