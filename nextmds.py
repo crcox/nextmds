@@ -62,7 +62,12 @@ def read_triplets(ifile):
         # against queries.
         labels = [str(x) for x in labels]
 
-    OUT = {k:[] for k in QUERIES.keys()}
+#    try:
+#        OUT = {k:[] for k in QUERIES.keys()}
+#    except SyntaxError:
+#        OUT = dict((k,[]) for k in QUERIES.keys())
+        OUT = dict((k,[]) for k in QUERIES.keys())
+
     OUT['nitems'] = item_count
     OUT['nqueries'] = query_type_count
     OUT['labels'] = labels

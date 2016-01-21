@@ -31,6 +31,7 @@ abort() {
   cleanup
 
   echo "An error occured. Exiting ..." >&2
+  echo 1 > EXIT_STATUS
   exit 1
 }
 
@@ -41,13 +42,14 @@ success() {
 *************
 '
   cleanup
+  echo 0 > EXIT_STATUS
 
   exit 0
 }
 
 # If an exit or interrupt occurs while the script is executing, run the abort
 # function.
-trap abort EXIT SIGTERM
+trap abort EXIT SIGTERM SIGKILL
 
 set -e
 
