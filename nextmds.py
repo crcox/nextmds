@@ -34,7 +34,7 @@ def read_triplets(ifile):
         query = [ row[i].strip() for i in (primary,alternate,target,timestamp) ]
         query_type = row[alglabel].strip()
 
-        [ labels.append(x) for x in query if not x in labels ]
+        [ labels.append(x) for x in query[:3] if not x in labels ]
 
         if not query_type in QUERIES.keys():
             query_type_count[query_type] = 0
@@ -43,6 +43,9 @@ def read_triplets(ifile):
         QUERIES[query_type].append(query)
         query_type_count[query_type] += 1
 
+    labels.sort()
+    print labels
+    labels = list(set(labels))
     item_count = len(labels)
     intconv = False
     try:
@@ -62,11 +65,8 @@ def read_triplets(ifile):
         # against queries.
         labels = [str(x) for x in labels]
 
-#    try:
-#        OUT = {k:[] for k in QUERIES.keys()}
-#    except SyntaxError:
-#        OUT = dict((k,[]) for k in QUERIES.keys())
-        OUT = dict((k,[]) for k in QUERIES.keys())
+    #OUT = {k:[] for k in QUERIES.keys()}
+    OUT = dict((k,[]) for k in QUERIES.keys())
 
     OUT['nitems'] = item_count
     OUT['nqueries'] = query_type_count
