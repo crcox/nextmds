@@ -27,6 +27,12 @@ for (i in 1:10000) {
   x[i] <- model_error(model, train[ix,])
 }
 
+png("training_error_size_p04_1D.png", width=600, height=600)
+hist(x, main="Histogram of training error on random samples of 412 responses", xlab="error")
+abline(v=0.2985437, col="blue", lwd=3) # test
+abline(v=0.3423165, col="red",  lwd=3) # train
+legend("topright", legend=c("train","test"), lty=1, col=c("red","blue"), lwd=3)
+dev.off()
 model_error <- function(model, responses) {
   # Each row of responses is a (primary, alternate, target) tuple
   # Primary is the item selected
