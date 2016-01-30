@@ -44,7 +44,6 @@ def read_triplets(ifile):
         query_type_count[query_type] += 1
 
     labels.sort()
-    print labels
     labels = list(set(labels))
     item_count = len(labels)
     intconv = False
@@ -86,11 +85,16 @@ def read_triplets(ifile):
     print ''
     return OUT
 
-def runJob(jobdir, cfgfile, sharedir):
+def runJob(jobdir, cfgfile):
     cfgfile        = os.path.join(jobdir, cfgfile)
-    lossfile       = os.path.join(jobdir, 'loss.csv')
     modelfile      = os.path.join(jobdir, 'model.csv')
-    querycountfile = os.path.join(sharedir,'querydata.json')
+    lossfile       = os.path.join(jobdir, 'loss.csv')
+    lossjson       = os.path.join(jobdir, 'loss.json')
+    labelfile      = os.path.join(jobdir, 'labels.txt')
+    querycountfile = os.path.join(jobdir, 'querydata.json')
+
+    lossd = {'train':{'empirical':[], 'hinge':[]},'test':{'empirical':[], 'hinge':[]}}
+    qc = {'all':{},'used':{},'nlabels':[]}
 
     WriteFileErrorMessage = """
 {path:s} could not be written. Check permissions and that folders along the
@@ -122,33 +126,9 @@ expected location.
         print ReadFileErrorMessage.format(path=queryfile)
         raise
 
-    referencedata = {
-            "labels"   : os.path.join(sharedir, 'labels.txt'),
-            "nqueries" : os.path.join(sharedir, 'querydata.json')
-        }
-    for AlgLab in responses.keys():
-        referencedata[AlgLab] = os.path.join(sharedir, 'responses_{a:s}.csv'.format(a=AlgLab))
-
-    if not os.path.isdir(sharedir):
-        os.makedirs(sharedir)
-
-    for key, path in referencedata.items():
-        try:
-            with open(path, 'wb') as f:
-                if key is 'nqueries':
-                    json.dump(responses[key],f)
-                elif key is 'labels':
-                    for x in responses['labels']:
-                        f.write(x+'\n')
-                elif key is 'nitems':
-                    pass
-                else:
-                    writer = csv.writer(f)
-                    writer.writerows(responses[key])
-        except IOError:
-            print WriteFileErrorMessage.format(path=path)
-            raise
-
+    # Divide responses into test and training sets
+    # and prepare for analysis
+    # ============================================
     training = responses[config['traincode']]
     testing = responses[config['testcode']]
 
@@ -167,6 +147,35 @@ expected location.
     training = training[0:ix]
     print "Training set size: {n:d} ({p:.1f}%)".format(n=len(training),p=config['proportion']*100)
 
+    # Write contents of the response structure to files
+    # =================================================
+    # nqueries  : counts by algorithm.
+    # labels    : stimulus identifiers corrsponding to rows of the model matrix.
+    # nitems    : the number of labels.
+    # responses : The actual response data, as numeric indexes. Indexes are
+    #            zero-based and map to labels in the order that they occur in
+    #            responses['labels'].
+    qc['all'] = responses['nqueries']
+    qc['used'][config['traincode']] = len(training)
+    qc['used'][config['testcode']] = len(testing)
+    qc['nlabels'] = responses['nitems']
+    with open(querycountfile, 'wb') as f:
+        json.dump(qc, f)
+
+    with open(labelfile, 'wb') as f:
+        for x in responses['labels']:
+            f.write(x+'\n')
+
+    rfile = os.path.join(jobdir, 'responses_{a:s}_TRAIN.csv'.format(a=config['traincode']))
+    with open(rfile, 'wb') as f:
+        writer = csv.writer(f)
+        writer.writerows(responses[config['traincode']])
+
+    rfile = os.path.join(jobdir, 'responses_{a:s}_TEST.csv'.format(a=config['testcode']))
+    with open(rfile, 'wb') as f:
+        writer = csv.writer(f)
+        writer.writerows(responses[config['testcode']])
+
     if useCrowdKernel:
         if 'max_iter_GD' in config.keys() and config['max_iter_GD']:
             print "Value for `max_iter_GD` is being ignored. Not exposed as argument to CrowdKernel."
@@ -181,8 +190,14 @@ expected location.
                 epsilon = config['epsilon'],
                 verbose = config['verbose'])
 
-        trainloss, hinge_loss, trainlogloss = utilsMDS.getLoss(model,training)
-        testloss, hinge_loss, testlogloss = utilsMDS.getLoss(model,testing)
+        empirical, hinge, logloss = utilsMDS.getLoss(model,training)
+        lossd['train']['empirical'] = empirical
+        lossd['train']['hinge'] = hinge
+        lossd['train']['log'] = logloss
+        empirical, hinge, logloss = utilsMDS.getLoss(model, testing)
+        lossd['test']['empirical'] = empirical
+        lossd['test']['hinge'] = hinge
+        lossd['test']['log'] = logloss
 
     else:
         if 'mu' in config.keys() and config['mu']:
@@ -200,17 +215,36 @@ expected location.
                 verbose = config['verbose'],
                 epsilon = config['epsilon'])
 
-        trainloss, hinge_loss = utilsMDS.getLoss(model,training)
-        testloss, hinge_loss = utilsMDS.getLoss(model,testing)
+        empirical, hinge = utilsMDS.getLoss(model,training)
+        lossd['train']['empirical'] = empirical
+        lossd['train']['hinge'] = hinge
+        empirical, hinge = utilsMDS.getLoss(model, testing)
+        lossd['test']['empirical'] = empirical
+        lossd['test']['hinge'] = hinge
 
+    # Write detailed loss info to json structured text
+    # ================================================
+    try:
+        with open(lossjson, 'wb') as f:
+            json.dump(lossd, f)
+    except IOError:
+        print WriteFileErrorMessage.format(path=lossjson)
+        raise
+
+    # Write empirical loss to a simple 1-row csv
+    # ==========================================
     try:
         with open(lossfile,'wb') as f:
             writer = csv.writer(f)
-            writer.writerow([trainloss,testloss])
+            writer.writerow([lossd['train']['empirical'],lossd['test']['empirical']])
     except IOError:
         print WriteFileErrorMessage.format(path=lossfile)
         raise
 
+
+    # Write the model itself to a csv
+    # ===============================
+    # NB. Should have one row per label
     try:
         with open(modelfile,'wb') as f:
             writer = csv.writer(f)

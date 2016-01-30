@@ -78,7 +78,7 @@ export LD_LIBRARY_PATH="${HOME}/usr/lib64/atlas":${LD_LIBRARY_PATH}
 echo "Unpack Data"
 tar xzf "data.tar.gz"
 export PATH=$(pwd)/python/bin:$PATH
-eval "${exe_dir}/generateEmbedding.py"
+eval "${exe_dir}/generateEmbedding.py --shared ./"
 
 # Exit successfully. Hooray!
-trap success EXIT SIGTERM
+trap success EXIT SIGTERM SIGKILL
