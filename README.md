@@ -1,3 +1,22 @@
+# nextmds
+
+Running this code requires some setup. First, install the code by running:
+```bash
+python setup.py install
+```
+
+Then you will define a single parameter file based on the template provided below.
+
+Finally you will run `setupJobs.py` (github.com/crcox/condortools/setupJobs.py) on this parameter file to generate one or more job directories. Each job directory will contain a file named `params.json` that defines all the parameters needed to compute a single embedding. Each job will produce a different embedding based on its own `params.json` file.
+
+To execute the jobs, you will execute:
+
+```bash
+python ./generateEmbedding [list of job dirs] --cfg params.json
+```
+
+## Template parameter file
+```yaml
 # RESPONSE DATA
 # =============
 # (str) responses: Path to csv returned from NEXT containing participant
