@@ -48,7 +48,7 @@ proportion: [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
 # AFFECT BOTH GRADIENT DECENT AND STOCHASTIC GRADIENT DESCENT
 # -----------------------------------------------------------
 # (float) max_norm: The maximum allowed norm of any one object (default equals
-#         10*d)
+#         10*d. If set to zero, the program will assume the default value).
 # (float) epsilon: Parameter that controls stopping condition, exits if
 #         gamma<epsilon (default = 0.01)
 # (int) randomRestarts: Each random restart will compute a new embedding from
