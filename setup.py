@@ -18,7 +18,7 @@ setup(
     keywords = "NEXT concepts UW-Madison",
     url = "http://packages.python.org/nextmds",
     packages=['nextmds'],
-    scripts['scripts/generateEmbedding'],
+    scripts = ['scripts/generateEmbedding'],
     long_description=read('README.md'),
     classifiers=[
         "Development Status :: 3 - Alpha",

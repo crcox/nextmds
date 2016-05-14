@@ -9,3 +9,4 @@ generateEmbedding_condor.py
 nextmds-*.tar.gz
 **/.condor_*
 Build/**
+nextmds.egg-info
