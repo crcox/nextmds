@@ -2,7 +2,7 @@
 
 Running this code requires some setup. First, install the code by running:
 ```bash
-python setup.py install
+python setup.py install --user
 ```
 
 Then you will define a single parameter file based on the template provided below.
