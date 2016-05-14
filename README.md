@@ -12,7 +12,7 @@ Finally you will run `setupJobs.py` (github.com/crcox/condortools/setupJobs.py) 
 To execute the jobs, you will execute:
 
 ```bash
-python ./generateEmbedding [list of job dirs] --cfg params.json
+generateEmbedding [list of job dirs] --cfg params.json
 ```
 
 ## Template parameter file

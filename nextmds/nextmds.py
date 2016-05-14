@@ -114,11 +114,9 @@ expected location.
 
     useCrowdKernel = config['ActiveLearningMethod'].lower() in ['crowdkernel','ck']
     if useCrowdKernel:
-        #import nextmds.utilsCrowdKernel as utilsMDS
-        utilsMDS = nextmds.utilsCrowdKernel
+        import utilsCrowdKernel as utilsMDS
     else:
-        #import nextmds.utilsMDS as utilsMDS
-        utilsMDS = nextmds.utilsMDS
+        import utilsMDS as utilsMDS
 
     queryfile = config['responses']
     try:
