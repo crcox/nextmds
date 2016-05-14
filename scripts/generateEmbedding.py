@@ -19,4 +19,4 @@ for job in joblist:
         print "\nERROR: {d} is not a directory.".format(d=job)
         raise IOError
 
-    nextmds.runJob(job, cfgfile)
+    nextmds.nextmds.runJob(job, cfgfile)
